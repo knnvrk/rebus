@@ -153,6 +153,45 @@ static int solve_v1(const Puzzle *p) {
     return rec_v1(0);
 }
 
+static int       order[MAX_LET];
+static long long neg_sum[MAX_LET + 1];
+static long long pos_sum[MAX_LET + 1];
+
+static int rec_v2(int k, long long partial) {
+    int n = P->n_letters;
+    if (k == n) return partial == 0;
+    if (partial + 9 * neg_sum[k] > 0 || partial + 9 * pos_sum[k] < 0) return 0;
+
+    int li = order[k];
+    for (int d = P->leading[li] ? 1 : 0; d < 10; d++) {
+        if (used[d]) continue;
+        used[d] = 1; val[li] = d;
+        if (rec_v2(k + 1, partial + P->coef[li] * d)) return 1;
+        used[d] = 0;
+    }
+    return 0;
+}
+
+static int solve_v2(const Puzzle *p) {
+    P = p; reset();
+    int n = p->n_letters;
+    for (int i = 0; i < n; i++) order[i] = i;
+    for (int i = 1; i < n; i++) {
+        int x = order[i], j = i - 1;
+        while (j >= 0 && llabs(p->coef[order[j]]) < llabs(p->coef[x])) {
+            order[j + 1] = order[j]; j--;
+        }
+        order[j + 1] = x;
+    }
+    neg_sum[n] = pos_sum[n] = 0;
+    for (int k = n - 1; k >= 0; k--) {
+        long long c = p->coef[order[k]];
+        neg_sum[k] = neg_sum[k + 1] + (c < 0 ? c : 0);
+        pos_sum[k] = pos_sum[k + 1] + (c > 0 ? c : 0);
+    }
+    return rec_v2(0, 0);
+}
+
 int main(int argc, char **argv) {
     if (argc < 2) {
         fprintf(stderr, "usage: %s \"SEND + MORE = MONEY\"\n", argv[0]);
@@ -162,7 +201,7 @@ int main(int argc, char **argv) {
     if (!parse(argv[1], &p)) { fprintf(stderr, "bad puzzle\n"); return 1; }
     
     clock_t t0 = clock();
-    int res = solve_v1(&p);
+    int res = solve_v2(&p);
     double t = (double)(clock() - t0) / CLOCKS_PER_SEC;
     
     if (res) print_solution(&p);
