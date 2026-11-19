@@ -277,7 +277,7 @@ int main(int argc, char **argv) {
                 argv[0], argv[0]);
         return 1;
     }
-    int version = (argc >= 3) ? atoi(argv[2]) : 0;
+    int version = (argc >= 3) ? atoi(argv[2]) : 1;
     Puzzle p;
     if (!parse(argv[1], &p)) { fprintf(stderr, "bad puzzle\n"); return 1; }
     if (solve(&p, version)) print_solution_from_source(argv[1]);
