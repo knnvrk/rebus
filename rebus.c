@@ -246,20 +246,54 @@ static int solve_v3(const Puzzle *p) {
     return col_step(0, 0);
 }
 
+typedef int (*Solver)(const Puzzle *);
+static const struct { const char *name; Solver f; } solvers[] = {
+    {"v0", solve_v0}, {"v1", solve_v1}, {"v2", solve_v2}, {"v3", solve_v3}
+};
+#define N_SOLVERS ((int)(sizeof solvers / sizeof solvers[0]))
+
+static double bench_one(Solver f, const Puzzle *p) {
+    clock_t t0 = clock();
+    int runs = 0;
+    do { f(p); runs++; }
+    while ((double)(clock() - t0) / CLOCKS_PER_SEC < 0.2);
+    return (double)(clock() - t0) / CLOCKS_PER_SEC / runs * 1000.0;
+}
+
+static int run_bench(void) {
+    const char *tests[] = {
+        "BE + BE = MOO",
+        "BIG + CAT = LION",
+        "SEND + MORE = MONEY",
+        "ELEVEN + NINE + FIVE + FIVE = THIRTY"
+    };
+    printf("%-38s", "puzzle (ms per run)");
+    for (int s = 0; s < N_SOLVERS; s++) printf("%12s", solvers[s].name);
+    putchar('\n');
+    for (int t = 0; t < (int)(sizeof tests / sizeof tests[0]); t++) {
+        Puzzle p;
+        if (!parse(tests[t], &p)) { printf("bad puzzle: %s\n", tests[t]); continue; }
+        printf("%-38s", tests[t]);
+        for (int s = 0; s < N_SOLVERS; s++)
+            printf("%12.4f", bench_one(solvers[s].f, &p));
+        putchar('\n');
+    }
+    return 0;
+}
+
 int main(int argc, char **argv) {
+    if (argc >= 2 && strcmp(argv[1], "--bench") == 0) return run_bench();
     if (argc < 2) {
-        fprintf(stderr, "usage: %s \"SEND + MORE = MONEY\"\n", argv[0]);
+        fprintf(stderr, "usage: %s \"SEND + MORE = MONEY\" [0..3]\n"
+                        "       %s --bench\n", argv[0], argv[0]);
         return 1;
     }
+    int ver = (argc >= 3) ? atoi(argv[2]) : 3;
+    if (ver < 0 || ver >= N_SOLVERS) { fprintf(stderr, "version must be 0..3\n"); return 1; }
+
     Puzzle p;
     if (!parse(argv[1], &p)) { fprintf(stderr, "bad puzzle\n"); return 1; }
-    
-    clock_t t0 = clock();
-    int res = solve_v3(&p);
-    double t = (double)(clock() - t0) / CLOCKS_PER_SEC;
-    
-    if (res) print_solution(&p);
-    else puts("no solution");
-    printf("Time: %.4f sec.\n", t);
+    if (solvers[ver].f(&p)) print_solution(&p);
+    else                    puts("no solution");
     return 0;
 }
