@@ -192,6 +192,60 @@ static int solve_v2(const Puzzle *p) {
     return rec_v2(0, 0);
 }
 
+static int ncols;
+static int col_cnt[MAX_LEN];
+static int col_let[MAX_LEN][MAX_WORDS];
+static int res_let[MAX_LEN];
+
+static int col_step(int i, int carry);
+
+static int fill(int i, const int *todo, int nt, int k, int carry) {
+    if (k == nt) {
+        int s = carry;
+        for (int j = 0; j < col_cnt[i]; j++) s += val[col_let[i][j]];
+        if (s % 10 != val[res_let[i]]) return 0;
+        return col_step(i + 1, s / 10);
+    }
+    int l = todo[k];
+    for (int d = P->leading[l] ? 1 : 0; d < 10; d++) {
+        if (used[d]) continue;
+        used[d] = 1; val[l] = d;
+        if (fill(i, todo, nt, k + 1, carry)) return 1;
+        used[d] = 0; val[l] = -1;
+    }
+    return 0;
+}
+
+static int col_step(int i, int carry) {
+    if (i == ncols) return carry == 0;
+    int todo[MAX_WORDS + 1], nt = 0;
+    for (int j = 0; j <= col_cnt[i]; j++) {
+        int l = (j < col_cnt[i]) ? col_let[i][j] : res_let[i];
+        if (val[l] >= 0) continue;
+        int dup = 0;
+        for (int t = 0; t < nt; t++) if (todo[t] == l) dup = 1;
+        if (!dup) todo[nt++] = l;
+    }
+    return fill(i, todo, nt, 0, carry);
+}
+
+static int solve_v3(const Puzzle *p) {
+    P = p; reset();
+    ncols = (int)strlen(p->result);
+    memset(col_cnt, 0, sizeof col_cnt);
+    for (int i = 0; i < p->n_words; i++) {
+        int len = (int)strlen(p->words[i]);
+        if (len > ncols) return 0;
+        for (int pos = 0; pos < len; pos++) {
+            char c = p->words[i][len - 1 - pos];
+            col_let[pos][col_cnt[pos]++] = p->idx[c - 'A'];
+        }
+    }
+    for (int pos = 0; pos < ncols; pos++)
+        res_let[pos] = p->idx[p->result[ncols - 1 - pos] - 'A'];
+    return col_step(0, 0);
+}
+
 int main(int argc, char **argv) {
     if (argc < 2) {
         fprintf(stderr, "usage: %s \"SEND + MORE = MONEY\"\n", argv[0]);
@@ -201,7 +255,7 @@ int main(int argc, char **argv) {
     if (!parse(argv[1], &p)) { fprintf(stderr, "bad puzzle\n"); return 1; }
     
     clock_t t0 = clock();
-    int res = solve_v2(&p);
+    int res = solve_v3(&p);
     double t = (double)(clock() - t0) / CLOCKS_PER_SEC;
     
     if (res) print_solution(&p);
