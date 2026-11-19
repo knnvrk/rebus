@@ -130,6 +130,29 @@ static int solve_v0(const Puzzle *p) {
     return rec_v0(0);
 }
 
+static int rec_v1(int k) {
+    if (k == P->n_letters) {
+        long long s = 0;
+        for (int i = 0; i < P->n_letters; i++) {
+            if (P->leading[i] && val[i] == 0) return 0;
+            s += P->coef[i] * val[i];
+        }
+        return s == 0;
+    }
+    for (int d = 0; d < 10; d++) {
+        if (used[d]) continue;
+        used[d] = 1; val[k] = d;
+        if (rec_v1(k + 1)) return 1;
+        used[d] = 0;
+    }
+    return 0;
+}
+
+static int solve_v1(const Puzzle *p) {
+    P = p; reset();
+    return rec_v1(0);
+}
+
 int main(int argc, char **argv) {
     if (argc < 2) {
         fprintf(stderr, "usage: %s \"SEND + MORE = MONEY\"\n", argv[0]);
@@ -139,7 +162,7 @@ int main(int argc, char **argv) {
     if (!parse(argv[1], &p)) { fprintf(stderr, "bad puzzle\n"); return 1; }
     
     clock_t t0 = clock();
-    int res = solve_v0(&p);
+    int res = solve_v1(&p);
     double t = (double)(clock() - t0) / CLOCKS_PER_SEC;
     
     if (res) print_solution(&p);
